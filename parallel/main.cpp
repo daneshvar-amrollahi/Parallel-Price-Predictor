@@ -79,7 +79,7 @@ vector<int> separateByComma(string s)
     return res;
 }
 
-void* getItems(void* tid)
+void* getItemsAndCalcSum(void* tid)
 {
     long thread_id = (long)tid;
 
@@ -115,6 +115,12 @@ void* getItems(void* tid)
 
         Item item{cur[classifierColNum], category};
 
+        if (category)
+        {
+            sum[thread_id] += item.x;
+            expensive_cnt[thread_id]++;
+        }
+
         items[thread_id].push_back(item);
     }
 
@@ -125,7 +131,7 @@ void* getItems(void* tid)
 }
 
 
-void readInput()
+void runUptoCalcMean()
 {
     string line;
     for (int i = 0 ; ; i++)
@@ -143,52 +149,7 @@ void readInput()
     int return_code;
     for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
     {
-        return_code = pthread_create(&threads[tid], NULL, getItems, (void*)tid);
-
-		if (return_code)
-		{
-            printf("ERROR; return code from pthread_create() is %d\n", return_code);
-			exit(-1);
-		}
-    }
-
-    
-    for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
-    {
-        return_code = pthread_join(threads[tid], NULL);
-		if (return_code)
-		{
-			printf("ERROR; return code from pthread_join() is %d\n", return_code);
-			exit(-1);
-		}
-    }
-
-}
-
-void* calcSums(void* tid)
-{
-    long thread_id = (long)tid; 
-
-    sum[thread_id] = 0;
-    int n = items[thread_id].size();
-    for (int i = 0 ; i < n ; i++)
-        if (items[thread_id][i].category)
-        {
-            expensive_cnt[thread_id] += 1;
-            sum[thread_id] += (items[thread_id][i].x); //no other thread touches this
-        }
-    //printf("This is thread %ld, my sum is %ld\n", thread_id, sum[thread_id]);
-    pthread_exit(NULL);
-}
-
-
-void calcMean()
-{
-    pthread_t threads[NUMBER_OF_THREADS];
-    int return_code;
-    for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
-    {
-        return_code = pthread_create(&threads[tid], NULL, calcSums, (void*)tid);
+        return_code = pthread_create(&threads[tid], NULL, getItemsAndCalcSum, (void*)tid);
 
 		if (return_code)
 		{
@@ -219,7 +180,14 @@ void calcMean()
     //printf("%f %d\n", total_sum, total_expensive_cnt);
     total_mean_1 = total_sum / total_expensive_cnt;
     //printf("%f\n", total_mean_1);
+
 }
+
+bool predictSingle(Item& item)
+{
+    return (total_mean_1 - std_1 <= item.x && item.x <= total_mean_1 + std_1);
+}
+
 
 void* calcSum2(void* tid)
 {
@@ -229,7 +197,7 @@ void* calcSum2(void* tid)
     for (int i = 0 ; i < n ; i++)
         if (items[thread_id][i].category)
             sum2[thread_id] += (items[thread_id][i].x - total_mean_1) * (items[thread_id][i].x - total_mean_1);
-
+   
     pthread_exit(NULL);
 }
 
@@ -265,10 +233,6 @@ void calcSTD()
     std_1 = sqrt(total_sum2 / total_expensive_cnt);
 }
 
-bool predictSingle(Item& item)
-{
-    return (total_mean_1 - std_1 <= item.x && item.x <= total_mean_1 + std_1);
-}
 
 void* calcCorrects(void* tid)
 {
@@ -324,17 +288,14 @@ int main(int argc, char *argv[])
 
     clock_t start, end;
     start = clock();
-    readInput();                //PARALLEL
-    
-    calcMean();                 //PARALLEL 
-
-
-    calcSTD();                  //PARALLEL
+    runUptoCalcMean();                //PARALLEL
+    end = clock();
+    calcSTD();                  //Total mean needed before this
 
     predictPriceCategories();   //PARALLEL
 
     double accuracy = getAccuracy();
-    end = clock();
+    
 
     double time_taken = double(end - start) / double(CLOCKS_PER_SEC);    
     cout << "Accuracy: " << fixed << setprecision(2) << accuracy * 100 << "%" << endl;
