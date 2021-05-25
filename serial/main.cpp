@@ -51,7 +51,7 @@ void readInput()
     ifstream fin(FILENAME);
 
     int row = 0;
-    while (getline(fin, line))
+    while (fin >> line)
     {
         if (row == 0) 
         {
@@ -110,18 +110,18 @@ int main(int argc, char *argv[])
     threshold = atoi(argv[1]);
     clock_t start, end;
     start = clock();
-    readInput();                //TODO: parallelize
+    readInput();                
     
-    calcMean();                 //TODO: parallelize
-    calcSTD();                  //TODO: parallelize
+    calcMean();                 
+    calcSTD();                  
 
-    predictPriceCategories();   //TODO: parallelize
+    predictPriceCategories();   
 
     end = clock();
 
 
     double time_taken = double(end - start) / double(CLOCKS_PER_SEC);    
     cout << "Accuracy: " << fixed << setprecision(2) << accuracy * 100 << "%" << endl;
-    printf("Time Elapsed: %f\n", time_taken);
+    //printf("Time Elapsed: %f\n", time_taken);
     return 0;
 }
