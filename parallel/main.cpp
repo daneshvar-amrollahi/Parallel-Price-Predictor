@@ -5,27 +5,31 @@
 #include <iomanip> 
 #include <pthread.h>
 #include <stdio.h>
+#include <time.h>
 
 using namespace std;
 
 #define COMMA ','
 #define EMPTY_STR ""
-#define NUM
 #define FILENAME "dataset.csv"
 #define CLASSIFIER "GrLivArea"
 #define SALE_PRICE "SalePrice"
 
+const int MAX_THREAD_NUMBERS = 20; 
 
 int NUMBER_OF_THREADS;
 int threshold;
-int expensive_cnt;
+int expensive_cnt[MAX_THREAD_NUMBERS];
 vector<string> lines;
 string head;
-double mean_1, std_1;
-int correct;
-pthread_mutex_t mutex_expensive_cnt, mutex_mean_1, mutex_std_1, mutex_correct;
-
-
+double std_1;
+double sum2[MAX_THREAD_NUMBERS];
+long sum[MAX_THREAD_NUMBERS];
+double total_mean_1;
+int correct[MAX_THREAD_NUMBERS];
+int total_items;
+int total_expensive_cnt;
+int total_corrects;
 
 struct Item
 {
@@ -33,13 +37,12 @@ struct Item
     bool category;
 };
 
-const int MAX_THREAD_NUMBERS = 1e5 + 10; //obviously no!
 vector<Item> items[MAX_THREAD_NUMBERS];
 
-int getColNum(string head, string key)
+int getColNum(const string& head, const string& key)
 {
     int cnt = 0;
-    string cur = "";
+    string cur = EMPTY_STR;
     for (int i = 0 ; i < head.size() ; i++)
     {
         if (head[i] == COMMA)
@@ -110,10 +113,6 @@ void* getItems(void* tid)
 
         Item item{cur[classifierColNum], category};
 
-        pthread_mutex_lock (&mutex_expensive_cnt);
-        expensive_cnt += category;
-        pthread_mutex_unlock (&mutex_expensive_cnt);
-
         items[thread_id].push_back(item);
     }
 
@@ -163,19 +162,19 @@ void readInput()
 
 }
 
-void* calcMeans(void* tid)
+void* calcSums(void* tid)
 {
     long thread_id = (long)tid; 
 
+    sum[thread_id] = 0;
     int n = items[thread_id].size();
     for (int i = 0 ; i < n ; i++)
         if (items[thread_id][i].category)
         {
-            pthread_mutex_lock (&mutex_mean_1);
-            mean_1 += (1 / (double)(expensive_cnt)) * (items[thread_id][i].x);
-            pthread_mutex_unlock (&mutex_mean_1);
+            expensive_cnt[thread_id] += 1;
+            sum[thread_id] += (items[thread_id][i].x); //no other thread touches this
         }
-
+    printf("This is thread %ld, my sum is %ld\n", thread_id, sum[thread_id]);
     pthread_exit(NULL);
 }
 
@@ -186,7 +185,7 @@ void calcMean()
     int return_code;
     for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
     {
-        return_code = pthread_create(&threads[tid], NULL, calcMeans, (void*)tid);
+        return_code = pthread_create(&threads[tid], NULL, calcSums, (void*)tid);
 
 		if (return_code)
 		{
@@ -204,20 +203,29 @@ void calcMean()
 			exit(-1);
 		}
     }
+
+    double total_sum = 0;
+    total_expensive_cnt = 0;
+    for (int i = 0 ; i < NUMBER_OF_THREADS ; i++)
+    {
+        total_expensive_cnt += expensive_cnt[i];
+        total_items += items[i].size();
+        total_sum += sum[i];
+    }
+
+    printf("%f %d\n", total_sum, total_expensive_cnt);
+    total_mean_1 = total_sum / total_expensive_cnt;
+    printf("%f\n", total_mean_1);
 }
 
-void* calcSTDs(void* tid)
+void* calcSum2(void* tid)
 {
     long thread_id = (long)tid; 
 
     int n = items[thread_id].size();
     for (int i = 0 ; i < n ; i++)
         if (items[thread_id][i].category)
-        {
-            pthread_mutex_lock (&mutex_std_1);
-            std_1 += (1 / (double)(expensive_cnt)) * (items[thread_id][i].x - mean_1) * (items[thread_id][i].x - mean_1);
-            pthread_mutex_unlock (&mutex_std_1);
-        }
+            sum2[thread_id] += (items[thread_id][i].x - total_mean_1) * (items[thread_id][i].x - total_mean_1);
 
     pthread_exit(NULL);
 }
@@ -228,7 +236,7 @@ void calcSTD()
     int return_code;
     for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
     {
-        return_code = pthread_create(&threads[tid], NULL, calcSTDs, (void*)tid);
+        return_code = pthread_create(&threads[tid], NULL, calcSum2, (void*)tid);
 
 		if (return_code)
 		{
@@ -247,25 +255,25 @@ void calcSTD()
 		}
     }
 
-    std_1 = sqrt(std_1);
+    double total_sum2 = 0;
+    for (int i = 0 ; i < NUMBER_OF_THREADS ; i++)
+        total_sum2 += sum2[i];
+
+    std_1 = sqrt(total_sum2 / total_expensive_cnt);
 }
 
 bool predictSingle(Item& item)
 {
-    return (mean_1 - std_1 <= item.x && item.x <= mean_1 + std_1);
+    return (total_mean_1 - std_1 <= item.x && item.x <= total_mean_1 + std_1);
 }
 
-void* predictPrices(void* tid)
+void* calcCorrects(void* tid)
 {
     long thread_id = (long)tid; 
 
     int n = items[thread_id].size();
     for (int i = 0 ; i < n ; i++)
-    {
-        pthread_mutex_lock (&mutex_correct);
-        correct += (predictSingle(items[thread_id][i]) == items[thread_id][i].category);
-        pthread_mutex_unlock (&mutex_correct);
-    }
+        correct[thread_id] += (predictSingle(items[thread_id][i]) == items[thread_id][i].category);
 
     pthread_exit(NULL);
 }
@@ -276,7 +284,7 @@ void predictPriceCategories()
     int return_code;
     for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
     {
-        return_code = pthread_create(&threads[tid], NULL, predictPrices, (void*)tid);
+        return_code = pthread_create(&threads[tid], NULL, calcCorrects, (void*)tid);
 
 		if (return_code)
 		{
@@ -294,35 +302,41 @@ void predictPriceCategories()
 			exit(-1);
 		}
     }
+
+    total_corrects = 0;
+    for (int i = 0 ; i < NUMBER_OF_THREADS ; i++)
+        total_corrects += correct[i];
+
 } 
 
 double getAccuracy()
 {
     double res = 0;
-    int total_items = 0;
-    for (int i = 0 ; ; i++)
-    {
-        if (items[i].size() == 0)
-            break;
-        total_items += (int)items[i].size();
-    }
-    return (((double)(correct)) / ((double)(total_items)));
+    return (((double)(total_corrects)) / ((double)(total_items)));
 }
 
 int main(int argc, char *argv[])
 {
     threshold = atoi(argv[1]);          
 
+    clock_t start, end;
+    start = clock();
     readInput();                //PARALLEL
     
     calcMean();                 //PARALLEL 
+
 
     calcSTD();                  //PARALLEL
 
     predictPriceCategories();   //PARALLEL
 
-
     double accuracy = getAccuracy();
+    end = clock();
+
+    double time_taken = double(end - start) / double(CLOCKS_PER_SEC);    
     cout << "Accuracy: " << fixed << setprecision(2) << accuracy * 100 << "%" << endl;
+    printf("Time Elapsed: %f\n", time_taken);
     return 0;
 }
+
+//  2433.31 589.787

@@ -3,6 +3,7 @@
 #include <vector>
 #include <math.h>
 #include <iomanip> 
+#include <time.h>
 
 using namespace std;
 
@@ -107,6 +108,8 @@ void predictPriceCategories()
 int main(int argc, char *argv[])
 {
     threshold = atoi(argv[1]);
+    clock_t start, end;
+    start = clock();
     readInput();                //TODO: parallelize
     
     calcMean();                 //TODO: parallelize
@@ -114,6 +117,11 @@ int main(int argc, char *argv[])
 
     predictPriceCategories();   //TODO: parallelize
 
+    end = clock();
+
+
+    double time_taken = double(end - start) / double(CLOCKS_PER_SEC);    
     cout << "Accuracy: " << fixed << setprecision(2) << accuracy * 100 << "%" << endl;
+    printf("Time Elapsed: %f\n", time_taken);
     return 0;
 }
