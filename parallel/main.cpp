@@ -6,6 +6,8 @@
 #include <pthread.h>
 #include <stdio.h>
 #include <time.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace std;
 
@@ -102,7 +104,7 @@ void* getItems(void* tid)
     }
 
     
-    printf("This is thread %ld, claasifierColNum: %d  priceColNum: %d\n", thread_id, classifierColNum, priceColNum);
+    //printf("This is thread %ld, claasifierColNum: %d  priceColNum: %d\n", thread_id, classifierColNum, priceColNum);
 
     string line;
     while (fin >> line)
@@ -116,7 +118,7 @@ void* getItems(void* tid)
         items[thread_id].push_back(item);
     }
 
-    printf("This is thread %ld, Read %d items\n", thread_id, (int)items[thread_id].size());
+    //printf("This is thread %ld, Read %d items\n", thread_id, (int)items[thread_id].size());
 
     fin.close();
     pthread_exit(NULL);
@@ -128,13 +130,14 @@ void readInput()
     string line;
     for (int i = 0 ; ; i++)
     {
-        ifstream fin("dataset_" + to_string(i) + ".csv");
-        if (fin.good())
-            NUMBER_OF_THREADS++;
-        else
+        struct stat buffer;   
+        string name = "dataset_" + to_string(i) + ".csv"; 
+        if (!(stat (name.c_str(), &buffer) == 0))
             break;
+        
+        NUMBER_OF_THREADS++;
     }
-    printf("NUMBER OF THREADS: %d\n", NUMBER_OF_THREADS);
+    //printf("NUMBER OF THREADS: %d\n", NUMBER_OF_THREADS);
 
     pthread_t threads[NUMBER_OF_THREADS];
     int return_code;
@@ -174,7 +177,7 @@ void* calcSums(void* tid)
             expensive_cnt[thread_id] += 1;
             sum[thread_id] += (items[thread_id][i].x); //no other thread touches this
         }
-    printf("This is thread %ld, my sum is %ld\n", thread_id, sum[thread_id]);
+    //printf("This is thread %ld, my sum is %ld\n", thread_id, sum[thread_id]);
     pthread_exit(NULL);
 }
 
@@ -213,9 +216,9 @@ void calcMean()
         total_sum += sum[i];
     }
 
-    printf("%f %d\n", total_sum, total_expensive_cnt);
+    //printf("%f %d\n", total_sum, total_expensive_cnt);
     total_mean_1 = total_sum / total_expensive_cnt;
-    printf("%f\n", total_mean_1);
+    //printf("%f\n", total_mean_1);
 }
 
 void* calcSum2(void* tid)
