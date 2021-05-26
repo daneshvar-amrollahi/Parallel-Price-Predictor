@@ -44,11 +44,11 @@ vector<int> separateByComma(string s)
     return res;
 }
 
-
+string dir;
 void readInput()
 {
     string line;   
-    ifstream fin(FILENAME);
+    ifstream fin(dir + FILENAME);
 
     int row = 0;
     while (fin >> line)
@@ -108,7 +108,13 @@ void predictPriceCategories()
 
 int main(int argc, char *argv[])
 {   
-    threshold = atoi(argv[1]);
+    if (argc < 2)
+    {
+        cout << "NOT ENOUGH ARGS PROVIDED\n";
+        exit(-1);
+    }
+    dir = string(argv[1]);
+    threshold = atoi(argv[2]);
     readInput();                
     calcMean();                 
     calcSTD();                  

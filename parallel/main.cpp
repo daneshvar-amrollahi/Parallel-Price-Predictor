@@ -80,12 +80,14 @@ vector<int> separateByComma(string s)
     return res;
 }
 
+string dir;
 void* calcSums(void* tid)
 {
     long thread_id = (long)tid;
 
     string filename = "dataset_" + to_string(thread_id) + ".csv"; 
-    ifstream fin(filename);
+    ifstream fin(dir + filename);
+
 
     string head;
     fin >> head;
@@ -135,14 +137,13 @@ void calcMeanSTD()
     for (int i = 0 ; ; i++)
     {
         struct stat buffer;   
-        string name = "dataset_" + to_string(i) + ".csv"; 
+        string name = dir + "dataset_" + to_string(i) + ".csv"; 
         if (!(stat (name.c_str(), &buffer) == 0))
             break;
         
         NUMBER_OF_THREADS++;
     }
   
-
     pthread_t threads[NUMBER_OF_THREADS];
     int return_code;
     for (long tid = 0 ; tid < NUMBER_OF_THREADS ; tid++)
@@ -238,10 +239,15 @@ double getAccuracy()
     return (((double)(total_corrects)) / ((double)(total_items)));
 }
 
-
 int main(int argc, char *argv[])
 {
-    threshold = atoi(argv[1]);          
+    if (argc < 2)
+    {
+        cout << "NOT ENOUGH ARGS PROVIDED\n";
+        exit(-1);
+    }
+    dir = string(argv[1]);
+    threshold = atoi(argv[2]);          
 
     calcMeanSTD();                
 
