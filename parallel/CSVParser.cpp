@@ -95,7 +95,6 @@ void breakCSV()
 
 int main(int argc, char *argv[])
 {
-    threshold = atoi(argv[1]);
     breakCSV();          
  
     return 0;

@@ -238,24 +238,25 @@ double getAccuracy()
     return (((double)(total_corrects)) / ((double)(total_items)));
 }
 
+clock_t start, endd;
+
 int main(int argc, char *argv[])
 {
+    start = clock();
     threshold = atoi(argv[1]);          
 
-    clock_t start, end;
     calcMeanSTD();                
-
-    //cout << mean << " " << _std << endl;
 
 
     predictPriceCategories();  
 
     double accuracy = getAccuracy();
     
+    endd = clock();
 
-    double time_taken = double(end - start) / double(CLOCKS_PER_SEC);    
+    double time_taken = double(endd - start) / double(CLOCKS_PER_SEC);    
     cout << "Accuracy: " << fixed << setprecision(2) << accuracy * 100 << "%" << endl;
-    //printf("Time Elapsed: %f\n", time_taken);
+    printf("Time Elapsed: %f\n", time_taken);
     return 0;
 }
 
