@@ -1,14 +1,14 @@
 ## Parallel Price Predictor
 
-The goal of this project is to predict the classify houses into two categories (expensive and inexpensive) based on their GrLivArea (the above ground (grade) living area). The classification is done by the Mean-Standard Deviation method. **POSIX Threads** is used for multithreading.
+The goal of this project is to classify houses in a dataset into two categories (expensive and inexpensive) based on their GrLivArea (the above ground (grade) living area). The classification is done by the Mean-Standard Deviation method. **POSIX Threads** is used for multithreading.
 
 
 
 The inputs of the program are:
-1. Directory of dataset
+1. Directory of the dataset
 2. Threshold for determining the category of a house price
 
-The program is implemented in both serial and parallel. The serial version inputs one whole complete dataset. The parallel version inputs multiple datasets and assigns 1 thread to each datasets.
+The program is implemented in both serial and parallel. The serial version inputs one whole complete dataset. The parallel version inputs multiple datasets and assigns exactly 1 thread to each dataset. 
 
 The program outputs the accuracy of the classifier. 
 
